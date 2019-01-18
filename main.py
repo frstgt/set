@@ -4,7 +4,8 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import GLib, Gio, Gtk
 
-import SetTable
+import AppDef, SetTable
+import AppFile, AppData
 
 # This would typically be its own file
 MENU_XML="""
@@ -15,20 +16,27 @@ MENU_XML="""
       <attribute name="label" translatable="yes">File</attribute>
       <section>
         <item>
-          <attribute name="action">win.new_table</attribute>
+          <attribute name="action">win.new</attribute>
           <attribute name="label" translatable="yes">_New</attribute>
+          <attribute name="accel">&lt;Primary&gt;n</attribute>
         </item>
         <item>
-          <attribute name="action">win.open_table</attribute>
+          <attribute name="action">win.open</attribute>
           <attribute name="label" translatable="yes">_Open</attribute>
+          <attribute name="accel">&lt;Primary&gt;o</attribute>
         </item>
         <item>
-          <attribute name="action">win.close_table</attribute>
-          <attribute name="label" translatable="yes">Close</attribute>
-        </item>
-        <item>
-          <attribute name="action">win.save_table</attribute>
+          <attribute name="action">win.save</attribute>
           <attribute name="label" translatable="yes">_Save</attribute>
+          <attribute name="accel">&lt;Primary&gt;s</attribute>
+        </item>
+        <item>
+          <attribute name="action">win.save_as</attribute>
+          <attribute name="label" translatable="yes">Save As</attribute>
+        </item>
+        <item>
+          <attribute name="action">win.close</attribute>
+          <attribute name="label" translatable="yes">Close</attribute>
         </item>
       </section>
       <section>
@@ -143,13 +151,32 @@ class AppWindow(Gtk.ApplicationWindow):
         #
 
         self.tables = SetTable.StateEventTables()
+        self.file = AppFile.AppFile(self, AppData.AppData(self.tables))
         vbox.pack_start(self.tables, True, True, 0)
 
-        self.tables.append_table("main")
+        self.file.new_file()
 
         self.show_all()
 
         ###
+
+        action = Gio.SimpleAction.new("new", None)
+        action.connect("activate", self.on_new)
+        self.add_action(action)
+        action = Gio.SimpleAction.new("open", None)
+        action.connect("activate", self.on_open)
+        self.add_action(action)
+        action = Gio.SimpleAction.new("save", None)
+        action.connect("activate", self.on_save)
+        self.add_action(action)
+        action = Gio.SimpleAction.new("save_as", None)
+        action.connect("activate", self.on_save_as)
+        self.add_action(action)
+        action = Gio.SimpleAction.new("close", None)
+        action.connect("activate", self.on_close)
+        self.add_action(action)
+
+        #
 
         action = Gio.SimpleAction.new("append_table", None)
         action.connect("activate", self.on_append_table)
@@ -186,8 +213,25 @@ class AppWindow(Gtk.ApplicationWindow):
 
         # Keep it in sync with the actual state
         self.connect("notify::is-maximized",
-                    lambda obj, pspec: max_action.set_state(
-                               GLib.Variant.new_boolean(obj.props.is_maximized)))
+            lambda obj, pspec: max_action.set_state(
+                GLib.Variant.new_boolean(obj.props.is_maximized)))
+
+        #
+
+    def save_changes(self):
+        self.file.save_changes()
+    def on_new(self, action, param):
+        self.file.new_file()
+    def on_open(self, action, param):
+        self.file.open_file()
+    def on_save(self, action, param):
+        self.file.save_file()
+    def on_save_as(self, action, param):
+        self.file.save_as_file()
+    def on_close(self, action, param):
+        self.file.close_file()
+
+        #
 
     def on_append_table(self, action, value):
         self.tables.append_table(None)
@@ -233,7 +277,7 @@ class Application(Gtk.Application):
 
     def __init__(self, *args, **kwargs):
         super(Application, self).__init__(*args,
-                         application_id="org.example.stt",
+                         application_id="org.frstgt.set",
                          flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
                          **kwargs)
         self.window = None
@@ -260,7 +304,8 @@ class Application(Gtk.Application):
         if not self.window:
             # Windows are associated with the application
             # when the last one is closed the application shuts down
-            self.window = AppWindow(application=self, title="Main Window")
+            self.window = AppWindow(application=self, title=AppDef.APP_NAME)
+            self.window.connect("delete-event", self.on_delete_event)
 
         self.window.present()
 
@@ -281,7 +326,16 @@ class Application(Gtk.Application):
         about_dialog.present()
 
     def on_quit(self, action, param):
+        res = self.window.file.save_changes()
+        if res == Gtk.ResponseType.YES:
+            return
         self.quit()
+
+    def on_delete_event(self, widget, event):
+        res = self.window.file.save_changes()
+        if res == Gtk.ResponseType.YES:
+            return True
+        return False
 
 if __name__ == "__main__":
     app = Application()
