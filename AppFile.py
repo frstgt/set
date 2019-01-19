@@ -6,6 +6,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import GLib, Gio, Gtk, Gdk, Pango
 
+import json
 import AppDef
 
 class AppFile:
@@ -18,10 +19,32 @@ class AppFile:
   def set_title(self, filename):
       title = AppDef.APP_NAME
       if filename != None:
-          title += " - " + filename
+          title += ": " + filename
       self.parent_window.set_title(title)
 
-    # 
+  def load_data(self, filename):
+      f = io.open(filename, 'r', encoding='utf-8')
+      first_line = f.readline().rstrip()
+      if first_line != AppDef.FILE_HEADER:
+          return
+      data = json.load(f)
+      f.close
+
+      self.appdata.set_data(data)
+
+  def save_data(self, filename):
+      data = self.appdata.get_data();
+
+      f = io.open(filename, 'w', encoding='utf-8')
+      f.write(AppDef.FILE_HEADER + "\n")
+
+      # json.dumps return utf-8 as str. it is a bug.
+      dump_utf8 = unicode(json.dumps(data, encoding='utf-8'))
+      f.write(dump_utf8)
+
+      f.close
+
+      # 
 
   def save_changes(self):
       res = Gtk.ResponseType.NO
@@ -50,19 +73,19 @@ class AppFile:
       if res == Gtk.ResponseType.OK:
           self.filename = filename
           self.appdata.clear_data()
-          self.appdata.load_data(self.filename)
+          self.load_data(self.filename)
           self.appdata.clear_changed()
           self.set_title(self.filename)
 
   def save_file(self):
       if self.filename != None:
-          self.appdata.save_data(self.filename)
+          self.save_data(self.filename)
           self.appdata.clear_changed()
       else:
           res, filename = self.save_file_dialog()
           if res == Gtk.ResponseType.OK:
               self.filename = filename
-              self.appdata.save_data(self.filename)
+              self.save_data(self.filename)
               self.appdata.clear_changed()
               self.set_title(self.filename)
 
@@ -70,7 +93,7 @@ class AppFile:
       res, filename = self.save_file_dialog()
       if res == Gtk.ResponseType.OK:
           self.filename = filename
-          self.appdata.save_data(self.filename)
+          self.save_data(self.filename)
           self.appdata.clear_changed()
           self.set_title(self.filename)
 

@@ -4,8 +4,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import GLib, Gio, Gtk
 
-import AppDef, SetTable
-import AppFile, AppData
+import AppDef, AppView, AppFile
 
 # This would typically be its own file
 MENU_XML="""
@@ -83,15 +82,15 @@ MENU_XML="""
           <attribute name="label" translatable="yes">Remove</attribute>
           <attribute name="action">win.remove_table</attribute>
         </item>
+        <item>
+          <attribute name="label" translatable="yes">Edit Name</attribute>
+          <attribute name="action">win.edit_table_name</attribute>
+        </item>
       </section>
     </submenu>
     <submenu>
       <attribute name="label" translatable="yes">State</attribute>
       <section>
-        <item>
-          <attribute name="label" translatable="yes">Edit</attribute>
-          <attribute name="action">win.edit_state</attribute>
-        </item>
         <item>
           <attribute name="label" translatable="yes">Append</attribute>
           <attribute name="action">win.append_state</attribute>
@@ -100,15 +99,19 @@ MENU_XML="""
           <attribute name="label" translatable="yes">Remove</attribute>
           <attribute name="action">win.remove_state</attribute>
         </item>
+        <item>
+          <attribute name="label" translatable="yes">Edit Name</attribute>
+          <attribute name="action">win.edit_state_name</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Edit Code</attribute>
+          <attribute name="action">win.edit_state_code</attribute>
+        </item>
       </section>
     </submenu>
     <submenu>
       <attribute name="label" translatable="yes">Event</attribute>
       <section>
-        <item>
-          <attribute name="label" translatable="yes">Edit</attribute>
-          <attribute name="action">win.edit_event</attribute>
-        </item>
         <item>
           <attribute name="label" translatable="yes">Append</attribute>
           <attribute name="action">win.append_event</attribute>
@@ -116,6 +119,14 @@ MENU_XML="""
         <item>
           <attribute name="label" translatable="yes">Remove</attribute>
           <attribute name="action">win.remove_event</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Edit Name</attribute>
+          <attribute name="action">win.edit_event_name</attribute>
+        </item>
+        <item>
+          <attribute name="label" translatable="yes">Edit Code</attribute>
+          <attribute name="action">win.edit_event_code</attribute>
         </item>
       </section>
     </submenu>
@@ -150,8 +161,8 @@ class AppWindow(Gtk.ApplicationWindow):
 
         #
 
-        self.tables = SetTable.StateEventTables()
-        self.file = AppFile.AppFile(self, AppData.AppData(self.tables))
+        self.tables = AppView.StateEventTables()
+        self.file = AppFile.AppFile(self, self.tables)
         vbox.pack_start(self.tables, True, True, 0)
 
         self.file.new_file()
@@ -184,25 +195,34 @@ class AppWindow(Gtk.ApplicationWindow):
         action = Gio.SimpleAction.new("remove_table", None)
         action.connect("activate", self.on_remove_table)
         self.add_action(action)
-
-        action = Gio.SimpleAction.new("edit_state", None)
-        action.connect("activate", self.on_edit_state)
+        action = Gio.SimpleAction.new("edit_table_name", None)
+        action.connect("activate", self.on_edit_table_name)
         self.add_action(action)
+
         action = Gio.SimpleAction.new("append_state", None)
         action.connect("activate", self.on_append_state)
         self.add_action(action)
         action = Gio.SimpleAction.new("remove_state", None)
         action.connect("activate", self.on_remove_state)
         self.add_action(action)
-
-        action = Gio.SimpleAction.new("edit_event", None)
-        action.connect("activate", self.on_edit_event)
+        action = Gio.SimpleAction.new("edit_state_name", None)
+        action.connect("activate", self.on_edit_state_name)
         self.add_action(action)
+        action = Gio.SimpleAction.new("edit_state_code", None)
+        action.connect("activate", self.on_edit_state_code)
+        self.add_action(action)
+
         action = Gio.SimpleAction.new("append_event", None)
         action.connect("activate", self.on_append_event)
         self.add_action(action)
         action = Gio.SimpleAction.new("remove_event", None)
         action.connect("activate", self.on_remove_event)
+        self.add_action(action)
+        action = Gio.SimpleAction.new("edit_event_name", None)
+        action.connect("activate", self.on_edit_event_name)
+        self.add_action(action)
+        action = Gio.SimpleAction.new("edit_event_code", None)
+        action.connect("activate", self.on_edit_event_code)
         self.add_action(action)
 
         # This will be in the windows group and have the "win" prefix
@@ -239,31 +259,58 @@ class AppWindow(Gtk.ApplicationWindow):
     def on_remove_table(self, action, value):
         self.tables.remove_table()
         self.show_all()
-
-    def on_edit_state(self, action, value):
-        table = self.tables.get_current_table()
-        table.edit_state(self)
+    def on_edit_table_name(self, action, value):
+        self.tables.edit_table_name(parent=self)
         self.show_all()
+
     def on_append_state(self, action, value):
         table = self.tables.get_current_table()
+        if table == None:
+            return
         table.append_state(None)
         self.show_all()
     def on_remove_state(self, action, value):
         table = self.tables.get_current_table()
+        if table == None:
+            return
         table.remove_state()
         self.show_all()
-
-    def on_edit_event(self, action, value):
+    def on_edit_state_name(self, action, value):
         table = self.tables.get_current_table()
-        table.edit_event(self)
+        if table == None:
+            return
+        table.edit_state_name(parent=self)
         self.show_all()
+    def on_edit_state_code(self, action, value):
+        table = self.tables.get_current_table()
+        if table == None:
+            return
+        table.edit_state_code(parent=self)
+        self.show_all()
+
     def on_append_event(self, action, value):
         table = self.tables.get_current_table()
+        if table == None:
+            return
         table.append_event(None)
         self.show_all()
     def on_remove_event(self, action, value):
         table = self.tables.get_current_table()
+        if table == None:
+            return
         table.remove_event()
+        self.show_all()
+    def on_edit_event_name(self, action, value):
+        table = self.tables.get_current_table()
+        if table == None:
+            return
+        table.edit_event_name(parent=self)
+        self.show_all()
+    def on_edit_event_code(self, action, value):
+        table = self.tables.get_current_table()
+        if table == None:
+            return
+        table.edit_event_code(parent=self)
         self.show_all()
 
     def on_maximize_toggle(self, action, value):

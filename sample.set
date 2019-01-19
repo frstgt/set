@@ -1,0 +1,2 @@
+<SET v0.1>
+[["main", [[["start", "print(\"start state\")"], ["stop", "print(\"end state\")"]], [["true", "True"]], [[0, 0, 1], [1, 0, -1]]]]]
