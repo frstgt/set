@@ -1,2 +1,6 @@
-20190119:
+20190124:
+  - globalsとlocalsの使い方の精査
+  - state/eventのedit/append/removeをより使いやすく
+    具体的には、AppMenuからWinMenuへ移動
+    editはラベルのダブルクリックで起動する
   - ステータスバーを用意し、変更の有無を表示する。

@@ -1,2 +1,2 @@
-<SET v0.1>
-[["main", [[["start", "print(\"start state\")"], ["stop", "print(\"end state\")"]], [["true", "True"]], [[0, 0, 1], [1, 0, -1]]]]]
+<SET v0.2>
+[["main", [[["start", ""], ["end", "print(\"end\")"], ["set", "a = 1\nprint(str(a))"], ["jump", "# call sub"]], [["true", "True"]], [[0, 0, "set"], [1, 0, ""], [2, 0, "jump"], [3, 0, "end"]]]], ["sub", [[["start", ""], ["end", ""], ["add", "a += 1\nprint(str(a))"]], [["true", "True"], ["over3", "a > 3"]], [[0, 0, "add"], [0, 1, ""], [1, 0, ""], [1, 1, ""], [2, 0, ""], [2, 1, "end"]]]]]

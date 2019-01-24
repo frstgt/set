@@ -16,20 +16,27 @@ class EditNameDialog(Gtk.Dialog):
         vbox = self.get_content_area()
 
         self.entry = Gtk.Entry()
+        self.entry.connect("changed", self.on_changed_for_entry)
         vbox.pack_start(self.entry, False, True, 0)
 
         self.set_name(name)
+        self.entry_changed = False
 
         self.show_all()
 
+    def get_changed(self):
+        return self.entry_changed
     def set_name(self, name):
         self.entry.set_text(name)
     def get_name(self):
         return self.entry.get_text()
 
-class EditCodeDialog(Gtk.Dialog):
+    def on_changed_for_entry(self, entry):
+        self.entry_changed = True
 
-    def __init__(self, win_title, parent, code):
+class EditNameCodeDialog(Gtk.Dialog):
+
+    def __init__(self, win_title, parent, name, code):
         Gtk.Dialog.__init__(self, win_title, parent, 0,
             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
              Gtk.STOCK_OK, Gtk.ResponseType.OK))
@@ -38,24 +45,38 @@ class EditCodeDialog(Gtk.Dialog):
 
         vbox = self.get_content_area()
 
+        self.entry = Gtk.Entry()
+        self.entry.connect("changed", self.on_changed_for_entry)
+        vbox.pack_start(self.entry, False, True, 0)
+
         scrolledwindow = Gtk.ScrolledWindow()
         scrolledwindow.set_hexpand(True)
         scrolledwindow.set_vexpand(True)
         self.textview = Gtk.TextView()
+        self.buffer = self.textview.get_buffer()
         scrolledwindow.add(self.textview)
         vbox.pack_start(scrolledwindow, True, True, 0)
 
-        self.set_code(code)
+        self.set_name_code(name, code)
+        self.entry_changed = False
+        self.buffer.set_modified(False)
 
         self.show_all()
 
-    def set_code(self, code):
+    def get_changed(self):
+        return self.entry_changed or self.buffer.get_modified()
+    def set_name_code(self, name, code):
+        self.entry.set_text(name)
         self.textview.get_buffer().set_text(code)
-    def get_code(self):
+    def get_name_code(self):
+        name = self.entry.get_text()
         buffer = self.textview.get_buffer()
         code = buffer.get_text(
             buffer.get_start_iter(), buffer.get_end_iter(), False)
-        return code
+        return [name, code]
+
+    def on_changed_for_entry(self, entry):
+        self.entry_changed = True
 
 
 class StateButton(Gtk.ToggleButton):
@@ -156,9 +177,9 @@ class StateEventTable(Gtk.Grid):
         trd = []
         for si in range(sn):
             for ei in range(en):
-                cmb = self.get_child_at(ei+1, si+1)
-                tsi = cmb.get_active()
-                trd.append([si, ei, tsi])
+                entry = self.get_child_at(ei+1, si+1)
+                ts = entry.get_text()
+                trd.append([si, ei, ts])
 
         return [sd, ed, trd]
 
@@ -171,64 +192,35 @@ class StateEventTable(Gtk.Grid):
         for ename, ecode in ed:
             self.append_event(ename, ecode)
 
-        for si, ei, tsi in trd:
-            cmb = self.get_child_at(ei+1, si+1)
-            cmb.set_active(tsi)
+        for si, ei, ts in trd:
+            entry = self.get_child_at(ei+1, si+1)
+            entry.set_text(ts)
 
         #
 
-    def edit_state_name(self, parent):
-        button = self.current_state
-        if button == None:
-            return
+    def get_rundata(self):
 
-        old_name = button.get_name()
-        dialog = EditNameDialog("Edit State Name: " + old_name, parent,
-                                old_name)
-        response = dialog.run()
+        sdata = {}
+        for st in self.states:
+            ev_st_list = []
+            sp = self.states.index(st)
+            for ei, ev in enumerate(self.events):
+                entry = self.get_child_at(ei+1, sp+1)
+                tsname = entry.get_text()
+                if tsname != "":
+                    ename = self.events[ei].get_name()
+                    ev_st_list.append([ename, tsname])
+            sname, scode = st.get_name_code()
+            sdata[sname] = [scode, ev_st_list]
 
-        if response == Gtk.ResponseType.OK:
-            new_name = dialog.get_name()
-            button.set_name(new_name)
+        edata = {}
+        for ev in self.events:
+            ename, ecode = ev.get_name_code()
+            edata[ename] = ecode
 
-            sn = len(self.states)
-            en = len(self.events)
-            sp = self.states.index(self.current_state)
-            for si in range(sn):
-                for ei in range(en):
-                    if si < sp:
-                        combo = self.get_child_at(ei+1, si+1)
-                        combo.remove(sp)
-                        combo.insert_text(sp, new_name)
-                    elif si > sp:
-                        combo = self.get_child_at(ei+1, si+1)
-                        combo.remove(sp+1)
-                        combo.insert_text(sp+1, new_name)
-                    else:
-                        pass
+        return [sdata, edata]
 
-        dialog.destroy()
-
-        self.changed = True
-        self.show_all()
-
-    def edit_state_code(self, parent):
-        button = self.current_state
-        if button == None:
-            return
-
-        name, code = button.get_name_code()
-        dialog = EditCodeDialog("Edit State Code: " + name, parent, code)
-        response = dialog.run()
-
-        if response == Gtk.ResponseType.OK:
-            code = dialog.get_code()
-            button.set_code(code)
-
-        dialog.destroy()
-
-        self.changed = True
-        self.show_all()
+        #
 
     def append_state(self, name=None, code=""):
 
@@ -247,21 +239,10 @@ class StateEventTable(Gtk.Grid):
 
         self.insert_row(sn+1)
         self.attach(button, 0, sn+1, 1, 1)
-        for si, st1 in enumerate(self.states):
-            if si != sn:
-                for ei, ev in enumerate(self.events):
-                    combo = self.get_child_at(ei+1, si+1)
-                    combo.insert_text(sn+1, name)
-            else:
-                for ei, ev in enumerate(self.events):
-                    combo = Gtk.ComboBoxText()
-                    combo.connect("changed", self.on_changed)
-                    combo.append_text("")
-                    for st2 in self.states:
-                        if st2 != button:
-                            nm2 = st2.get_name()
-                            combo.append_text(nm2)
-                    self.attach(combo, ei+1, sn+1, 1, 1)
+        for ei, ev in enumerate(self.events):
+            entry = Gtk.Entry()
+            entry.connect("changed", self.on_changed)
+            self.attach(entry, ei+1, sn+1, 1, 1)
 
         self.changed = True
         self.show_all()
@@ -276,10 +257,6 @@ class StateEventTable(Gtk.Grid):
         del self.states[sp]
 
         self.remove_row(sp+1)
-        for si, st in enumerate(self.states):
-            for ei, ev in enumerate(self.events):
-                combo = self.get_child_at(ei+1, si+1)
-                combo.remove(sp+1)
         if sp >= len(self.states):
             sp = len(self.states)-1
         self.current_state = self.get_child_at(0, sp+1)
@@ -287,43 +264,25 @@ class StateEventTable(Gtk.Grid):
         self.changed = True
         self.show_all()
 
-        #
-
-    def edit_event_name(self, parent):
-        button = self.current_event
-        if button == None:
-            return
-
-        name = button.get_name()
-        dialog = EditNameDialog("Edit Event Name: " + name, parent, name)
-        response = dialog.run()
-
-        if response == Gtk.ResponseType.OK:
-            name = dialog.get_name()
-            button.set_name(name)
-
-        dialog.destroy()
-
-        self.changed = True
-        self.show_all()
-
-    def edit_event_code(self, parent):
-        button = self.current_event
+    def edit_state(self, parent):
+        button = self.current_state
         if button == None:
             return
 
         name, code = button.get_name_code()
-        dialog = EditCodeDialog("Edit Event Code: " + name, parent, code)
+        dialog = EditNameCodeDialog("Edit State: " + name, parent,
+                                name, code)
         response = dialog.run()
 
         if response == Gtk.ResponseType.OK:
-            code = dialog.get_code()
-            button.set_code(code)
+            if dialog.get_changed():
+                name, code = dialog.get_name_code()
+                button.set_name_code(name, code)
+                self.changed = True
 
         dialog.destroy()
 
-        self.changed = True
-        self.show_all()
+        #
 
     def append_event(self, name=None, code=""):
         if name == None:
@@ -342,14 +301,9 @@ class StateEventTable(Gtk.Grid):
         self.insert_column(en+1)
         self.attach(button, en+1, 0, 1, 1)
         for si, st1 in enumerate(self.states):
-            combo = Gtk.ComboBoxText()
-            combo.connect("changed", self.on_changed)
-            combo.append_text("")
-            for st2 in self.states:
-                if st2 != st1:
-                    nm2 = st2.get_name()
-                    combo.append_text(nm2)
-            self.attach(combo, en+1, si+1, 1, 1)
+            entry = Gtk.Entry()
+            entry.connect("changed", self.on_changed)
+            self.attach(entry, en+1, si+1, 1, 1)
 
         self.changed = True
         self.show_all()
@@ -370,6 +324,24 @@ class StateEventTable(Gtk.Grid):
 
         self.changed = True
         self.show_all()
+
+    def edit_event(self, parent):
+        button = self.current_event
+        if button == None:
+            return
+
+        name, code = button.get_name_code()
+        dialog = EditNameCodeDialog("Edit Event: " + name, parent,
+                                name, code)
+        response = dialog.run()
+
+        if response == Gtk.ResponseType.OK:
+            if dialog.get_changed():
+                name, code = dialog.get_name_code()
+                button.set_name_code(name, code)
+                self.changed = True
+
+        dialog.destroy()
 
         #
 
@@ -395,7 +367,7 @@ class StateEventTable(Gtk.Grid):
             if self.current_event == button:
                 button.set_active(True)
 
-    def on_changed(self, combo_box):
+    def on_changed(self, entry):
         self.changed = True
 
 class StateEventTables(Gtk.Notebook):
@@ -449,6 +421,18 @@ class StateEventTables(Gtk.Notebook):
 
         #
 
+    def get_rundata(self):
+        data = {}
+        tn = self.get_n_pages()
+        for ti in range(tn):
+            table = self.get_nth_page(ti)
+            tname = self.get_tab_label_text(table)
+            tdata = table.get_rundata()
+            data[tname] = tdata
+        return data
+
+        #
+
     def get_current_table(self):
         page = self.get_current_page()
         if page == -1:
@@ -457,22 +441,7 @@ class StateEventTables(Gtk.Notebook):
         table = self.get_nth_page(page)
         return table
 
-    def edit_table_name(self, parent):
-        page = self.get_current_page()
-        if page == -1:
-            return
-
-        table = self.get_nth_page(page)
-        name = self.get_tab_label_text(table)
-        
-        dialog = EditNameDialog("Edit Table Name: " + name, parent, name)
-        response = dialog.run()
-
-        if response == Gtk.ResponseType.OK:
-            name = dialog.get_name()
-            self.set_tab_label_text(table, name)
-
-        dialog.destroy()
+        #
 
     def append_table(self, name):
 
@@ -497,6 +466,25 @@ class StateEventTables(Gtk.Notebook):
 
         self.changed = True
         self.show_all()
+
+    def edit_table(self, parent):
+        page = self.get_current_page()
+        if page == -1:
+            return
+
+        table = self.get_nth_page(page)
+        name = self.get_tab_label_text(table)
+        
+        dialog = EditNameDialog("Edit Table Name: " + name, parent, name)
+        response = dialog.run()
+
+        if response == Gtk.ResponseType.OK:
+            if dialog.get_changed():
+                name = dialog.get_name()
+                self.set_tab_label_text(table, name)
+                self.changed = True
+
+        dialog.destroy()
 
         #
 
