@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-APP_NAME = u'Set v0.1'
+APP_NAME = u'StEvTb v0.1'
 
 FILE_FORMAT = u'SET'
 FILE_PATTERN = u'*.set'

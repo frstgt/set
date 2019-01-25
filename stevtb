@@ -1,0 +1,5 @@
+#!/bin/bash
+
+python ~/bin/stevtb-v0.1/main.py
+
+# end of file
