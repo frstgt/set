@@ -1,21 +1,21 @@
 # stevtb
 
-# description
+## description
 
 "stevtb" is "State Event Table".
 You can make some state transition tables with Python, and run it.
 
-# install/uninstall
+## install/uninstall
 
-  You can install stevtb to ~/bin and uninstall it.
-  > make install
+  You can install stevtb to ~/bin and uninstall it.  
+  > make install  
   > make uninstall
 
-# run
+## run
 
   > stevtb
 
-# usage
+## usage
 
   - You can append tables with '+' button
         and remove with '-' button
@@ -42,9 +42,8 @@ You can make some state transition tables with Python, and run it.
   - You can call another table
     with a state has '# call (table name)' as code.
 
-# bug
+## bug
 
   - You cannot stop program with 'Stop' button.
     You need kill the process under such situation.
 
-# end of file
